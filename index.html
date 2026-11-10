@@ -281,7 +281,7 @@ function getPin(){try{return localStorage.getItem('fe_pin')||''}catch(e){return 
 function setPin(v){window.__pin=v;try{if(v)localStorage.setItem('fe_pin',v);else localStorage.removeItem('fe_pin')}catch(e){}}
 function post(body){return fetch(API_URL,{method:'POST',credentials:'omit',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(body),redirect:'follow'}).then(function(r){return r.json()})}
 function call(action,p){
-  if(API_URL&&!window.DEMO_MODE){return post({a:action,p:p||{},pin:getPin()}).then(function(r){if(r&&(r.pinSalah||r.perluPin)){setPin('');pinGate(r.error);throw new Error('pin')}return r})}
+  if(API_URL&&!window.DEMO_MODE){return post({a:action,p:p||{},pin:getPin()}).then(function(r){if(r&&(r.pinSalah||r.perluPin)){setPin('');try{localStorage.removeItem('fe_D')}catch(e){}pinGate(r.error);throw new Error('pin')}return r})}
   return new Promise(function(res,rej){try{google.script.run.withSuccessHandler(res).withFailureHandler(rej).api(action,p||{})}catch(e){rej(e)}})}
 function pinGate(msg){
   post({a:'auth.status'}).then(function(st){var baru=!st.adaPin;
@@ -292,7 +292,7 @@ function pinGate(msg){
       if(baru){if($('pin2').value.trim()!==v){toast(L('pinTakSama'));return}post({a:'auth.setup',pin:v}).then(function(r){if(!r.ok){toast(r.error);return}setPin(v);load()})}
       else{post({a:'auth.check',pin:v}).then(function(r){if(!r.ok){pinGate(r.error);return}setPin(v);load()})}})
   }).catch(function(){$('app').innerHTML='<div class="card"><p class="neg">'+L('ralat')+'</p></div>'})}
-function run(action,p,okMsg,reload){return call(action,p).then(function(r){if(!r.ok){toast(r.error||L('ralat'));return r}if(okMsg)toast(okMsg);if(reload!==false)return load().then(function(){return r});return r}).catch(function(){toast(L('ralat'))})}
+function run(action,p,okMsg,reload){return call(action,p).then(function(r){if(!r.ok){toast(r.error||L('ralat'));return r}if(okMsg)toast(okMsg);if(r.__data){applyD(r.__data);return r}if(reload!==false)return load().then(function(){return r});return r}).catch(function(){toast(L('ralat'))})}
 
 // ================================================================ state
 var D=null,tab='dash',me=null;
@@ -321,7 +321,9 @@ function applyLang(){document.documentElement.lang=lang==='en'?'en':'ms';documen
 document.querySelectorAll('.lang button').forEach(function(b){b.addEventListener('click',function(){lang=this.getAttribute('data-lang');try{localStorage.setItem('fe_sk_lang',lang)}catch(e){}applyLang();if(D)render();})});
 function demoBar(){return window.DEMO_MODE?'<div class="demo"><span style="flex:1">'+L('demo')+'</span><button class="btn sm ghost" id="rDemo">'+L('resetDemo')+'</button></div>':''}
 function bindDemo(){var b=$('rDemo');if(b)b.addEventListener('click',function(){window.DEMO_RESET();D=null;load()})}
-function load(){return call('data.all').then(function(r){if(!r||!r.ok){if(r&&r.error)toast(r.error);return}D=r;me=r.me;render()}).catch(function(){$('app').innerHTML='<div class="card"><p class="neg">'+L('ralat')+'</p></div>'})}
+function applyD(r){D=r;me=r.me;render();if(API_URL&&!window.DEMO_MODE){try{localStorage.setItem('fe_D',JSON.stringify(r))}catch(e){}}}
+function cachedD(){try{var s=localStorage.getItem('fe_D');return s?JSON.parse(s):null}catch(e){return null}}
+function load(){var b=$('rfBtn');if(b)b.classList.add('spin');return call('data.all').then(function(r){if(b)b.classList.remove('spin');if(!r||!r.ok){if(r&&r.error)toast(r.error);return}applyD(r)},function(e){if(b)b.classList.remove('spin');throw e}).catch(function(){$('app').innerHTML='<div class="card"><p class="neg">'+L('ralat')+'</p></div>'})}
 function tabs(){return [['dash','tDash'],['produk','tProduk'],['pesanan','tPesanan'],['sh','tSH'],['laporan','tLaporan'],['stok','tStok'],['pembekal','tPembekal'],['tetapan','tTetapan']]}
 function render(){
   $('nav').hidden=false;
@@ -755,9 +757,9 @@ function vTetapan(v){
 
 // ================================================================ start
 applyLang();
-(function(){var b=$('rfBtn');if(!b)return;b.addEventListener('click',function(){if(API_URL&&!window.DEMO_MODE&&!getPin()){pinGate();return}b.classList.add('spin');Promise.resolve(load()).then(function(){toast(L('dikemas'))}).finally(function(){b.classList.remove('spin')})})})();
+(function(){var b=$('rfBtn');if(!b)return;b.addEventListener('click',function(){if(API_URL&&!window.DEMO_MODE&&!getPin()){pinGate();return}Promise.resolve(load()).then(function(){toast(L('dikemas'))})})})();
 if('serviceWorker' in navigator&&location.protocol==='https:'&&API_URL){navigator.serviceWorker.register('sw.js').catch(function(){})}
-if(API_URL&&!window.DEMO_MODE&&!getPin())pinGate();else load();
+if(API_URL&&!window.DEMO_MODE&&!getPin())pinGate();else{var c0=(API_URL&&!window.DEMO_MODE)?cachedD():null;if(c0){D=c0;me=c0.me;try{render()}catch(e){}}load()}
 })();
 </script>
 </body>
